@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gestor de Calendarios</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Gestor de calendarios — busca por horario específico</h1>
+      <div class="muted small">Se guardan en localStorage del navegador</div>
+    </header>
+
+    <div class="grid">
+      <aside class="card">
+        <h3>Crear calendario</h3>
+        <label>Nombre</label>
+        <input id="calName" placeholder="Ej: Trabajo, Personal" />
+        <label>Color (hex)</label>
+        <input id="calColor" placeholder="#4f46e5" />
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="addCal" class="btn primary">Agregar calendario</button>
+          <button id="exportBtn" class="btn ghost">Exportar JSON</button>
+        </div>
+
+        <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)" />
+
+        <h3>Calendarios</h3>
+        <div id="calsList"></div>
+
+        <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)" />
+
+        <h3>Agregar evento</h3>
+        <label>Calendario</label>
+        <select id="evtCal"></select>
+        <label>Título</label>
+        <input id="evtTitle" placeholder="Reunión con cliente" />
+        <label>Inicio (fecha y hora)</label>
+        <input id="evtStart" type="datetime-local" />
+        <label>Fin (fecha y hora)</label>
+        <input id="evtEnd" type="datetime-local" />
+        <label>Descripción (opcional)</label>
+        <textarea id="evtDesc" rows="3"></textarea>
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <button id="addEvt" class="btn primary">Agregar evento</button>
+          <button id="clearAll" class="btn ghost">Borrar todo</button>
+        </div>
+
+      </aside>
+
+      <main>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h3 style="margin:0">Buscar por horario</h3>
+              <div class="muted small">Escribe una fecha y hora; te devolverá eventos que incluyan ese instante.</div>
+            </div>
+            <div class="top-controls">
+              <input id="searchDate" type="datetime-local" class="small" />
+              <button id="searchBtn" class="btn primary">Buscar</button>
+            </div>
+          </div>
+
+          <div id="results" class="result">
+            <div class="muted">Resultados aparecerán aquí</div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Eventos guardados</h3>
+          <div id="eventsList" class="events-list"></div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Importar / Exportar</h3>
+          <div class="muted small">Puedes pegar aquí un JSON exportado para restaurar calendarios y eventos.</div>
+          <textarea id="importJson" rows="6" placeholder='{"calendars":[...],"events":[...]}'></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="importBtn" class="btn primary">Importar</button>
+            <button id="downloadBtn" class="btn ghost">Descargar JSON</button>
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <footer>Consejos: 1) Usa colores hex (#xxxxxx). 2) El buscador devuelve eventos cuyo rango [inicio, fin] incluye el instante buscado.</footer>
+  </div>
+
+  <script>
+    // Estructura de datos en localStorage
+    // { calendars: [{id,name,color}], events: [{id,calendarId,title,start,end,desc}] }
+    const KEY = 'gestor_calendarios_v1';
+
+    function uid(prefix='id'){return prefix + '_' + Math.random().toString(36).slice(2,9)}
+
+    function load(){
+      const raw = localStorage.getItem(KEY);
+      if(!raw) return {calendars:[], events:[]};
+      try{return JSON.parse(raw)}catch(e){console.error('JSON parse error',e);return {calendars:[],events:[]}};
+    }
+    function save(state){localStorage.setItem(KEY,JSON.stringify(state))}
+
+    // UI refs
+    const calName = document.getElementById('calName');
+    const calColor = document.getElementById('calColor');
+    const addCal = document.getElementById('addCal');
+    const calsList = document.getElementById('calsList');
+    const evtCal = document.getElementById('evtCal');
+    const evtTitle = document.getElementById('evtTitle');
+    const evtStart = document.getElementById('evtStart');
+    const evtEnd = document.getElementById('evtEnd');
+    const evtDesc = document.getElementById('evtDesc');
+    const addEvt = document.getElementById('addEvt');
+    const eventsList = document.getElementById('eventsList');
+    const searchDate = document.getElementById('searchDate');
+    const searchBtn = document.getElementById('searchBtn');
+    const results = document.getElementById('results');
+    const exportBtn = document.getElementById('exportBtn');
+    const importJson = document.getElementById('importJson');
+    const importBtn = document.getElementById('importBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const clearAll = document.getElementById('clearAll');
+
+    let state = load();
+
+    function renderCalendars(){
+      calsList.innerHTML = '';
+      evtCal.innerHTML = '';
+      if(state.calendars.length===0){calsList.innerHTML = '<div class="muted">No hay calendarios. Crea uno.</div>'}
+      state.calendars.forEach(c=>{
+        const el = document.createElement('div');el.className='cal-item';
+        el.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="color-pill" style="background:${c.color||'#666'}"></div>
+            <div>
+              <div style="font-weight:600">${escapeHtml(c.name)}</div>
+              <div class="muted small">id: ${c.id}</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn ghost" data-id="${c.id}" data-act="del">Eliminar</button>
+          </div>
+        `;
+        calsList.appendChild(el);
+
+        const opt = document.createElement('option');opt.value=c.id;opt.textContent=c.name;evtCal.appendChild(opt);
+      })
+    }
+
+    function renderEvents(){
+      eventsList.innerHTML='';
+      if(state.events.length===0){eventsList.innerHTML='<div class="muted">Aún no hay eventos.</div>';return}
+      const byCal = {};
+      state.events.forEach(ev=>{
+        const row = document.createElement('div');row.className='event-row';
+        const cal = state.calendars.find(c=>c.id===ev.calendarId) || {name:'(sin calendario)',color:'#666'};
+        row.innerHTML = `
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="color-pill" style="background:${cal.color}"></div>
+            <div>
+              <div style="font-weight:600">${escapeHtml(ev.title)}</div>
+              <div class="muted small">${formatDt(ev.start)} — ${formatDt(ev.end)} • ${escapeHtml(cal.name)}</div>
+              ${ev.desc?`<div class="muted small">${escapeHtml(ev.desc)}</div>`:''}
+            </div>
+          </div>
+          <div class="actions"><button class="btn ghost" data-id="${ev.id}" data-act="delEvt">Eliminar</button></div>
+        `;
+        eventsList.appendChild(row);
+      })
+    }
+
+    function formatDt(s){
+      try{const d = new Date(s);if(isNaN(d)) return s;return d.toLocaleString();}catch(e){return s}
+    }
+
+    function escapeHtml(str){return String(str||'').replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\'":"&#39;","\"":"&quot;"}[c]))}
+
+    // Actions
+    addCal.addEventListener('click',()=>{
+      const name = calName.value.trim();
+      let color = calColor.value.trim();
+      if(!name){alert('Escribe un nombre para el calendario');return}
+      if(!/^#?[0-9a-fA-F]{3,6}$/.test(color)) color = '#6b7280';
+      if(color[0] !== '#') color = '#'+color;
+      const cal = {id:uid('cal'),name, color};
+      state.calendars.push(cal);
+      save(state);renderCalendars();renderEvents();
+      calName.value='';calColor.value='';
+    })
+
+    addEvt.addEventListener('click',()=>{
+      const calendarId = evtCal.value;
+      const title = evtTitle.value.trim();
+      const start = evtStart.value;
+      const end = evtEnd.value;
+      const desc = evtDesc.value.trim();
+      if(!title || !start || !end){alert('Título, inicio y fin son obligatorios');return}
+      if(new Date(start) > new Date(end)){alert('La fecha de inicio debe ser anterior a la de fin');return}
+      const ev = {id:uid('evt'),calendarId,title,start,end,desc};
+      state.events.push(ev);save(state);renderEvents();
+      evtTitle.value='';evtStart.value='';evtEnd.value='';evtDesc.value='';
+    })
+
+    // Delegación para botones eliminar
+    document.addEventListener('click',e=>{
+      const t = e.target;
+      if(t.dataset && t.dataset.act==='del'){
+        const id = t.dataset.id;
+        state.calendars = state.calendars.filter(c=>c.id!==id);
+        // eliminar eventos del calendario
+        state.events = state.events.filter(ev=>ev.calendarId!==id);
+        save(state);renderCalendars();renderEvents();
+      }
+      if(t.dataset && t.dataset.act==='delEvt'){
+        const id = t.dataset.id;
+        state.events = state.events.filter(ev=>ev.id!==id);save(state);renderEvents();
+      }
+    })
+
+    searchBtn.addEventListener('click',()=>{
+      const s = searchDate.value;
+      if(!s){results.innerHTML='<div class="muted">Selecciona una fecha y hora para buscar</div>';return}
+      const instant = new Date(s);
+      if(isNaN(instant)){results.innerHTML='<div class="muted">Fecha inválida</div>';return}
+      const matches = state.events.filter(ev=>{
+        const st = new Date(ev.start), en = new Date(ev.end);
+        return st<=instant && instant<=en;
+      });
+      if(matches.length===0){results.innerHTML='<div class="muted">No se encontraron eventos en ese horario.</div>';return}
+      const out = document.createElement('div');
+      matches.forEach(ev=>{
+        const cal = state.calendars.find(c=>c.id===ev.calendarId) || {name:'(sin calendario)',color:'#666'};
+        const itm = document.createElement('div');itm.style.marginBottom='8px';
+        itm.innerHTML = `
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="color-pill" style="background:${cal.color}"></div>
+            <div>
+              <div style="font-weight:700">${escapeHtml(ev.title)}</div>
+              <div class="muted small">${formatDt(ev.start)} — ${formatDt(ev.end)} • ${escapeHtml(cal.name)}</div>
+              ${ev.desc?`<div class="muted small">${escapeHtml(ev.desc)}</div>`:''}
+            </div>
+          </div>
+        `;
+        out.appendChild(itm);
+      })
+      results.innerHTML='';results.appendChild(out);
+    })
+
+    exportBtn.addEventListener('click',()=>{
+      const data = JSON.stringify(state, null, 2);
+      // mostrar en textarea importJson para copiar
+      importJson.value = data;
+      alert('JSON copiado al cuadro de importación. También puedes descargarlo con "Descargar JSON"')
+    })
+
+    importBtn.addEventListener('click',()=>{
+      const raw = importJson.value.trim();
+      if(!raw){alert('Pega un JSON válido en el cuadro');return}
+      try{
+        const parsed = JSON.parse(raw);
+        if(!parsed.calendars || !parsed.events) throw new Error('Formato invalido');
+        state = {calendars:parsed.calendars, events:parsed.events};
+        save(state);renderCalendars();renderEvents();alert('Importación correcta')
+      }catch(e){alert('Error al parsear JSON: '+e.message)}
+    })
+
+    downloadBtn.addEventListener('click',()=>{
+      const data = JSON.stringify(state, null, 2);
+      const blob = new Blob([data], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');a.href=url;a.download='calendarios.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+    })
+
+    clearAll.addEventListener('click',()=>{
+      if(!confirm('¿Borrar todos los calendarios y eventos?')) return;
+      state = {calendars:[],events:[]};save(state);renderCalendars();renderEvents();importJson.value='';results.innerHTML='<div class="muted">Resultados aparecerán aquí</div>';
+    })
+
+    // Init
+    renderCalendars();renderEvents();
+
+    // Seed example if empty
+    if(state.calendars.length===0 && state.events.length===0){
+      const c1 = {id:uid('cal'),name:'Trabajo',color:'#4f46e5'};
+      const c2 = {id:uid('cal'),name:'Personal',color:'#0ea5a4'};
+      const now = new Date();
+      const ev1 = {id:uid('evt'),calendarId:c1.id,title:'Standup diario',start:new Date(now.getFullYear(),now.getMonth(),now.getDate(),9,0).toISOString(),end:new Date(now.getFullYear(),now.getMonth(),now.getDate(),9,30).toISOString(),desc:'Revisión diaria'};
+      const ev2 = {id:uid('evt'),calendarId:c2.id,title:'Cita médica',start:new Date(now.getFullYear(),now.getMonth(),now.getDate(),15,0).toISOString(),end:new Date(now.getFullYear(),now.getMonth(),now.getDate(),16,0).toISOString(),desc:''};
+      state.calendars.push(c1,c2);state.events.push(ev1,ev2);save(state);renderCalendars();renderEvents();
+    }
+
+  </script>
+</body>
+</html>
