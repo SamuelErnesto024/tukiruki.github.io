@@ -1,0 +1,170 @@
+/* 1. Variables/Raíz */
+:root {
+  --bg: #0f1724;
+  --card: #0b1220;
+  --muted: #9aa4b2;
+  --accent: #4f46e5;
+  --glass: rgba(255, 255, 255, 0.03);
+}
+
+/* 2. Reset/Estilos Globales */
+* {
+  box-sizing: border-box;
+  font-family: Inter, ui-sans-serif, system-ui, Arial;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #071028 0%, #081426 100%);
+  color: #e6eef8;
+  min-height: 100vh;
+  padding: 28px;
+}
+
+/* 3. Layout/Estructura */
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 16px;
+}
+
+footer {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* 4. Componentes/Módulos */
+h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.card {
+  background: var(--card);
+  padding: 14px;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(2, 6, 23, 0.6);
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+input,
+select,
+textarea,
+button {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: transparent;
+  color: inherit;
+}
+
+.cal-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: var(--glass);
+}
+
+.color-pill {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  cursor: pointer;
+  border: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.btn.primary {
+  background: linear-gradient(90deg, var(--accent), #8b5cf6);
+  color: #fff;
+}
+
+.btn.ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.events-list {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.event-row {
+  padding: 8px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.02), transparent);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.top-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 5. Utilidades */
+.small {
+  font-size: 13px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.result {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Media Queries (al final para sobrescribir reglas fácilmente) */
+@media (max-width: 880px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .container {
+    padding: 12px;
+  }
+}
